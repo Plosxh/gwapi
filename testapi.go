@@ -75,8 +75,9 @@ func main() {
    var id int
    var category int
    var count int
-   var objet int
+   var objet string
    var item_id int
+   var name string
    fmt.Println("Choisissez : 1-Mettre à jour la Banque, 2-Voir les prix, 3-Tester getUnItem")
    _,err := fmt.Scanln(&choix)
    if err != nil {
@@ -97,8 +98,8 @@ case 2:
 
     rows,err :=db.Query("SELECT * FROM Bank")
     for rows.Next(){
-    err = rows.Scan(&id,&item_id,&category,&count)
-    fmt.Println("ID : ", item_id, " Category : ",category," Count : ",count)
+    err = rows.Scan(&id,&name,&item_id,&category,&count)
+    fmt.Println("ID : ", item_id," Nom : ",name, " Category : ",category," Count : ",count)
     if err != nil {
       log.Fatal(err)
     }
@@ -109,7 +110,7 @@ case 2:
   getUnItem(objet)
 
 case 3:
-  fmt.Println("Choisissez l'Id d'un objet : ")
+  fmt.Println("Choisissez l'Id des objets, séparé par une virgule : ")
   _,err = fmt.Scanln(&objet)
 
   getUnItem(objet)
@@ -127,16 +128,18 @@ case 3:
 }
 
 
-func getUnItem(I int)  {
+func getUnItem(I string)  {
 
-  url := "https://api.guildwars2.com/v2/commerce/prices?id="+strconv.Itoa(I)
-  fmt.Println(url)
+  url := "https://api.guildwars2.com/v2/commerce/prices?id="+I
+  //fmt.Println(url)
 
-  var Unitems price
-
+  var Unitems []price
   getJson(url,&Unitems)
+  fmt.Println(len(Unitems))
+  for i := 0; i < len(Unitems); i++ {
+      fmt.Println("Achat : ",Unitems[i].Buys.Unit_price," Vente : ",Unitems[i].Sells.Unit_price," Profit : ",calcFees(Unitems[i].Buys.Unit_price,Unitems[i].Sells.Unit_price))
+  }
 
-  fmt.Println("Achat : ",Unitems.Buys.Unit_price," Vente : ",Unitems.Sells.Unit_price," Profit : ",calcFees(Unitems.Buys.Unit_price,Unitems.Sells.Unit_price))
 
 }
 
@@ -145,16 +148,16 @@ func checkBank(key string)  {
   var foo1 []banqueMatXml
   //var tempo1 []banqueMatXml
   //var foo2 banqueMatXml
-  fmt.Println("allo ?")
+  //fmt.Println("allo ?")
 getJson("https://api.guildwars2.com/v2/account/materials?access_token="+key, &foo1)
 fmt.Println("vous avez : ",len(foo1)," objects dans vos materiaux.")
-  fmt.Println("allo 2 ?")
+  //fmt.Println("allo 2 ?")
 
 writer,_ :=os.OpenFile("./gwitem.xml", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 enc := xml.NewEncoder(writer)
-fmt.Println("test")
+//fmt.Println("test")
 //enc.Indent("  ", "    ")
-fmt.Println(len(foo1))
+//fmt.Println(len(foo1))
 /*for i := 0; i < len(foo1); i++ {
   fmt.Println("bla")
 
@@ -190,8 +193,8 @@ fmt.Println(len(foo1))
     defer db.Close()
 
     for i := 0; i < itemlen; i++ {
-
-      _,err =db.Exec("INSERT INTO bank VALUES (NULL,"+strconv.FormatInt(monItem.BanqueMatXml[i].Id,10)+","+strconv.FormatInt(monItem.BanqueMatXml[i].Category,10)+","+strconv.FormatInt(monItem.BanqueMatXml[i].Count,10)+")")
+      var name = getNom(monItem.BanqueMatXml[i].Id)
+      _,err =db.Exec("INSERT INTO bank VALUES (NULL,"+strconv.FormatInt(monItem.BanqueMatXml[i].Id,10)+",\""+name+"\","+strconv.FormatInt(monItem.BanqueMatXml[i].Category,10)+","+strconv.FormatInt(monItem.BanqueMatXml[i].Count,10)+")")
 
 
     }
@@ -232,11 +235,11 @@ func doEvery(d time.Duration) {
 func pingApi(t time.Time) price{
   url := "./prices.json"
   var foo1 price // or &Foo{}
-  fmt.Println(t.Clock)
+  //  fmt.Println(t.Clock)
   getJson("https://api.guildwars2.com/v2/commerce/prices?id=19684", &foo1)
   //getJson(url,foo1)
-  println(foo1.Buys.Unit_price)
-  fmt.Println(foo1)
+  //println(foo1.Buys.Unit_price)
+  //fmt.Println(foo1)
 
 
   file, err := ioutil.ReadFile(url)
@@ -291,4 +294,11 @@ func calcFees(buy int64, sell int64) float64{
   var profit float64
   profit = ((float64(sell)*0.85)-float64(buy))
   return profit
+}
+
+func getNom(id int64)string{
+  var monMat []mat
+  getJson("https://api.guildwars2.com/v2/items?ids="+strconv.FormatInt(id,10), &monMat)
+
+return monMat[0].Name
 }
