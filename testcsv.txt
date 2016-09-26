@@ -1,0 +1,58 @@
+/*package main
+
+import (
+    "os"
+    "fmt"
+    "log"
+    "encoding/csv"
+)
+
+var data = [][]string{{"Line1", "Hello Readers of:"}, {"Line2", "golangcode.com"}}
+
+func main() {
+  fmt.Println(data[1][1])
+    file, err := os.Create("result.csv")
+    checkError("Cannot create file", err)
+    defer file.Close()
+
+    writer := csv.NewWriter(file)
+
+    for _, value := range data {
+      var record []string
+      record = append(record, value[0])
+      record = append(record, value[1])
+      fmt.Println(record)
+      //record = append(record, value[0][1])
+        err := writer.Write(record)
+        checkError("Cannot write to file", err)
+    }
+
+    defer writer.Flush()
+}
+
+func checkError(message string, err error) {
+    if err != nil {
+        log.Fatal(message, err)
+    }
+}*/
+
+package main
+
+import (
+	"encoding/csv"
+	"fmt"
+	"os"
+)
+
+func main() {
+	f, err := os.OpenFile("values.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	w := csv.NewWriter(f)
+	for i := 0; i < 10; i++ {
+		w.Write([]string{"a", "b", "c"})
+	}
+	w.Flush()
+}
