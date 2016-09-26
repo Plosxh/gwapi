@@ -183,9 +183,9 @@ func addFav()  {
   }
 
   fmt.Println("Choisissez l'id d'un item à ajouter en favori : ")
-  _,err := fmt.Scanln(&choix)
+  _,err = fmt.Scanln(&choix)
 
-  rows,err :=db.Query("SELECT * FROM Bank where id="+choix)
+  rows,err =db.Query("SELECT * FROM Bank where id="+choix)
   for rows.Next(){
   err = rows.Scan(&id,&name,&item_id,&category,&count)
   if err != nil {
