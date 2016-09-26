@@ -145,7 +145,11 @@ func getUnItem(I string)  {
   fmt.Println("item: ",Unitems)
   //for i := 0; i < len(Unitems); i++ {
       fmt.Println("Achat : ",Unitems.Buys.Unit_price," Vente : ",Unitems.Sells.Unit_price," Profit : ",calcFees(Unitems.Buys.Unit_price,Unitems.Sells.Unit_price))
+
+if Unitems.Buys.Unit_price != 0 && Unitems.Sells.Unit_price != 0{
       addCsv(Unitems)
+}
+
   //}
 
 
@@ -287,7 +291,7 @@ func addCsv(p price) {
   values[2]=strings.Join(strconv.FormatInt(p.Buys.Unit_price,10),";")
   values[3]=strings.Join(strconv.FormatInt(p.Sells.Unit_price,10),";")*/
 
-  w.Write([]string{strconv.FormatInt(p.Id,10)+";" +strconv.FormatInt(p.Buys.Quantity,10)+";" +strconv.FormatInt(p.Buys.Unit_price,10)+";" +strconv.FormatInt(p.Sells.Quantity,10)+";"+ strconv.FormatInt(p.Sells.Unit_price,10)})
+  w.Write([]string{strconv.FormatInt(p.Id,10)+";" +getNom(p.Id)+";" +strconv.FormatInt(p.Buys.Unit_price,10)+";" + strconv.FormatInt(p.Sells.Unit_price,10)+";"+strconv.FormatFloat(calcFees(p.Buys.Unit_price,p.Sells.Unit_price),'G',0,64)})
   //result[0] =strings.Join(values,";")
   //w.Write(values[0],values[1],values[2],values[3])
   //}
@@ -308,7 +312,18 @@ func getJson(url string, target interface{}) error {
 
 func calcFees(buy int64, sell int64) float64{
   var profit float64
-  profit = ((float64(sell)*0.85)-float64(buy))
+  //profit = ((float64(sell)*0.85)-float64(buy))
+  if sell == 0 {
+    if buy ==0{
+      fmt.Println("cette objet n'existe pas en vente !")
+    }else{
+          profit =0
+    }
+
+  }else{
+    profit =float64(100-((buy*100.0)/sell))
+  }
+
   return profit
 }
 
