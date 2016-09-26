@@ -14,6 +14,7 @@ import(
 //"strings"
 	"time"
   "strconv"
+  //strings"
 )
 
 
@@ -78,6 +79,7 @@ func main() {
    var objet string
    var item_id int
    var name string
+   var mesObjets string
    fmt.Println("Choisissez : 1-Mettre à jour la Banque, 2-Voir les prix, 3-Tester getUnItem")
    _,err := fmt.Scanln(&choix)
    if err != nil {
@@ -110,10 +112,15 @@ case 2:
   getUnItem(objet)
 
 case 3:
-  fmt.Println("Choisissez l'Id des objets, séparé par une virgule : ")
-  _,err = fmt.Scanln(&objet)
+  //for {
 
-  getUnItem(objet)
+    fmt.Println("Choisissez l'Id d'un objet ou stop pour arrêter : ")
+    _,err = fmt.Scanln(&objet)
+
+  //}
+  mesObjets=objet
+
+  getUnItem(mesObjets)
 }
   //doEvery(10*time.Second)
   //mesItems:=getItems()
@@ -133,12 +140,13 @@ func getUnItem(I string)  {
   url := "https://api.guildwars2.com/v2/commerce/prices?id="+I
   //fmt.Println(url)
 
-  var Unitems []price
+  var Unitems price
   getJson(url,&Unitems)
-  fmt.Println(len(Unitems))
-  for i := 0; i < len(Unitems); i++ {
-      fmt.Println("Achat : ",Unitems[i].Buys.Unit_price," Vente : ",Unitems[i].Sells.Unit_price," Profit : ",calcFees(Unitems[i].Buys.Unit_price,Unitems[i].Sells.Unit_price))
-  }
+  fmt.Println("item: ",Unitems)
+  //for i := 0; i < len(Unitems); i++ {
+      fmt.Println("Achat : ",Unitems.Buys.Unit_price," Vente : ",Unitems.Sells.Unit_price," Profit : ",calcFees(Unitems.Buys.Unit_price,Unitems.Sells.Unit_price))
+      addCsv(Unitems)
+  //}
 
 
 }
@@ -265,7 +273,8 @@ return foo1
 }
 
 func addCsv(p price) {
-
+  //values := []string{}
+  //result := []string{}
 	f, err := os.OpenFile("values.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		fmt.Println(err)
@@ -273,8 +282,15 @@ func addCsv(p price) {
 	}
 	w := csv.NewWriter(f)
 	//for i := 0; i < 10; i++ {
-  		w.Write([]string{strconv.FormatInt(p.Id,10), strconv.FormatInt(p.Buys.Quantity,10), strconv.FormatInt(p.Buys.Unit_price,10), strconv.FormatInt(p.Sells.Quantity,10), strconv.FormatInt(p.Sells.Unit_price,10)})
-	//}
+  /*values[0]=strings.Join(strconv.FormatInt(p.Id,10),";")
+  values[1]=strings.Join(getNom(p.Id),";")
+  values[2]=strings.Join(strconv.FormatInt(p.Buys.Unit_price,10),";")
+  values[3]=strings.Join(strconv.FormatInt(p.Sells.Unit_price,10),";")*/
+
+  w.Write([]string{strconv.FormatInt(p.Id,10)+";" +strconv.FormatInt(p.Buys.Quantity,10)+";" +strconv.FormatInt(p.Buys.Unit_price,10)+";" +strconv.FormatInt(p.Sells.Quantity,10)+";"+ strconv.FormatInt(p.Sells.Unit_price,10)})
+  //result[0] =strings.Join(values,";")
+  //w.Write(values[0],values[1],values[2],values[3])
+  //}
 	w.Flush()
 }
 
