@@ -80,7 +80,7 @@ func main() {
    var item_id int
    var name string
    var mesObjets string
-   fmt.Println("Choisissez : 1-Mettre à jour la Banque, 2-Voir les prix, 3-Tester getUnItem")
+   fmt.Println("Choisissez : 1-Mettre à jour la Banque, 2-Voir les prix, 3-Tester getUnItem, 4 par ajouter un favori :")
    _,err := fmt.Scanln(&choix)
    if err != nil {
      log.Fatal(err)
@@ -121,6 +121,8 @@ case 3:
   mesObjets=objet
 
   getUnItem(mesObjets)
+case 4:
+  addFav()
 }
   //doEvery(10*time.Second)
   //mesItems:=getItems()
@@ -152,6 +154,45 @@ if Unitems.Buys.Unit_price != 0 && Unitems.Sells.Unit_price != 0{
 
   //}
 
+
+}
+
+
+func addFav()  {
+
+  var choix string
+  var id int
+  var name string
+  var item_id int
+  var category int
+  var count int
+
+  db, err := sql.Open("sqlite3", "./itemgw.db")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer db.Close()
+
+    rows,err :=db.Query("SELECT * FROM Bank")
+    for rows.Next(){
+    err = rows.Scan(&id,&name,&item_id,&category,&count)
+    fmt.Println("ID : ", item_id," Nom : ",name, " Category : ",category," Count : ",count)
+    if err != nil {
+      log.Fatal(err)
+    }
+  }
+
+  fmt.Println("Choisissez l'id d'un item à ajouter en favori : ")
+  _,err := fmt.Scanln(&choix)
+
+  rows,err :=db.Query("SELECT * FROM Bank where id="+choix)
+  for rows.Next(){
+  err = rows.Scan(&id,&name,&item_id,&category,&count)
+  if err != nil {
+    log.Fatal(err)
+  }
+}
+_,err =db.Exec("INSERT INTO favori VALUES (\""+choix +"\",\""+name+"\")")
 
 }
 

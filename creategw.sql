@@ -8,5 +8,6 @@ CREATE TABLE "bank"(
 
 
 CREATE TABLE "favori"(
-  "id" INTEGER NULL
+  "id" INTEGER NULL,
+  "nom" VARCHAR(64) NULL
 );
