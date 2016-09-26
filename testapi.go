@@ -175,7 +175,7 @@ func addFav()  {
 
     rows,err :=db.Query("SELECT * FROM Bank")
     for rows.Next(){
-    err = rows.Scan(&id,&name,&item_id,&category,&count)
+    err = rows.Scan(&id,&item_id,&name,&category,&count)
     fmt.Println("ID : ", item_id," Nom : ",name, " Category : ",category," Count : ",count)
     if err != nil {
       log.Fatal(err)
@@ -187,7 +187,7 @@ func addFav()  {
 
   rows,err =db.Query("SELECT * FROM Bank where id="+choix)
   for rows.Next(){
-  err = rows.Scan(&id,&name,&item_id,&category,&count)
+  err = rows.Scan(&id,&item_id,&name,&category,&count)
   if err != nil {
     log.Fatal(err)
   }
