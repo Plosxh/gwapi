@@ -17,46 +17,6 @@ import(
   //strings"
 )
 
-
-
-/*type Object struct {
-    Name string
-    Description string
-    Type string
-    Level int
-    Rarity string
-    VendorValue int
-    DefaultSkin uint32
-    GameType []string
-    Flags []string
-    Restrictions []string
-    Id int
-    ChatLink []string
-    Icon string
-    Details details
-}
-
-type details struct{
-  DType string
-  DamageType string
-  MinPower int
-  MaxPower int
-  Defense int
-  InfusSlot []string
-  InfixUpgrade infixUpgrade
-}
-
-type infixUpgrade struct{
-  Id int
-  Attribute []attribute
-  SuffixId int
-  SecondSuffixId int
-}
-
-type attribute struct{
-  Attribute string
-  Mdifier string
-}*/
 type item struct{
   XMLName xml.Name `xml:"items"`
   BanqueMatXml []banqueMatXml `xml:"mat"`
