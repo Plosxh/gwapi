@@ -44,6 +44,7 @@ func main() {
    var Ids []int64
    var monProfit int
    var fin string
+   var monTime int
    fmt.Println("Choisissez : 1-Mettre à jour la Banque, 2-Voir les prix, 3-Tester getUnItem, 4-par ajouter un favori, 5-getBankPrice :")
    _,err := fmt.Scanln(&choix)
    if err != nil {
@@ -91,6 +92,9 @@ case 4:
 case 5:
   fmt.Println("Choisissez un profit minimum (entrez un entier entre 0 et 100) : ")
   _,err = fmt.Scanln(&monProfit)
+
+  fmt.Println("Choisissez le temps de rafraichissement en second : ")
+  _,err = fmt.Scanln(&monTime)
   nb=0
   db, err := sql.Open("sqlite3", "./itemgw.db")
   if err != nil {
@@ -109,8 +113,8 @@ case 5:
     }
     nb++
   }
-
-  getBankPrices(Ids,monProfit)
+  doEvery(10*time.Second,monProfit,Ids)
+  //getBankPrices(Ids,monProfit)
 }
   //doEvery(10*time.Second)
   //mesItems:=getItems()
@@ -185,7 +189,7 @@ func addFav()  {
 
 }
 
-func getBankPrices(I []int64,min int)  {
+func getBankPrices(t time.Time,I []int64,min int)  {
   var mesPrices []price
   var mesPrices2 []price
   var mesPrices3 []price
@@ -354,10 +358,9 @@ func getItems()  []items{
 }
 
 
-func doEvery(d time.Duration) {
+func doEvery(d time.Duration,p int, i []int64) {
 	for x := range time.Tick(d) {
-    p := pingApi(x)
-    addCsv(p)
+    getBankPrices(x,i,p)
 	}
 }
 
@@ -438,7 +441,7 @@ func calcFees(buy int64, sell int64) float64{
     }
 
   }else{
-    profit =float64(100-((buy*100.0)/sell))
+    profit =(float64(100)-(float64((buy*100.0))/(float64(sell)*0.85)))
   }
 
   return profit
