@@ -109,7 +109,7 @@ case 5:
     Ids=append(Ids,int64(item_id))
     if err != nil {
       log.Fatal(err)
-      fmt.Println("arrête scanln case 5")
+      fmt.Println("arret scanln in case 5")
     }
     nb++
   }
@@ -196,7 +196,7 @@ func getBankPrices(t time.Time,I []int64,min int)  {
   var profit float64
 
   //L'api est limité à 200 items à la fois du coup on sépare les 413 items en 3
-  fmt.Println("len de I : ",len(I))
+  //fmt.Println("len de I : ",len(I))
   url := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(I[0],10)
   for i := 1; i < 199; i++ {
     url = url +","+strconv.FormatInt(I[i],10)
