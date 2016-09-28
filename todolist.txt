@@ -5,3 +5,10 @@
         faire un report de chaque item tracker (nb d'item vendu en 1j etc...) avec excel
         Corriger probleme favori
 FAIT    checker l'integralité de la bank et ressortir les item pofitable ( +20% )
+FAIt    calcFees correcte.
+
+
+
+achat 2,
+vente 7,
+profit =3.95

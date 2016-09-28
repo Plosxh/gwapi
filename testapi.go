@@ -45,6 +45,7 @@ func main() {
    var monProfit int
    var fin string
    var monTime int
+   var loop bool
    fmt.Println("Choisissez : 1-Mettre à jour la Banque, 2-Voir les prix, 3-Tester getUnItem, 4-par ajouter un favori, 5-getBankPrice :")
    _,err := fmt.Scanln(&choix)
    if err != nil {
@@ -52,11 +53,11 @@ func main() {
    }
 
 
-switch choix {
-case 1:
+  switch choix {
+  case 1:
   checkBank(getClef())
 
-case 2:
+  case 2:
   db, err := sql.Open("sqlite3", "./itemgw.db")
   if err != nil {
     log.Fatal(err)
@@ -76,20 +77,31 @@ case 2:
 
   getUnItem(objet)
 
-case 3:
+  case 3:
   //for {
 
-    fmt.Println("Choisissez l'Id d'un objet ou stop pour arrêter : ")
-    _,err = fmt.Scanln(&objet)
+
 
   //}
-  mesObjets=objet
+  loop = true
+  for  loop {
+    fmt.Println("Choisissez l'Id d'un objet ou stop pour arrêter : ")
+    _,err = fmt.Scanln(&objet)
+    if objet =="stop"{
+      loop=false
+    }else{
+      loop=true
+      mesObjets=objet
 
-  getUnItem(mesObjets)
-case 4:
+      getUnItem(mesObjets)
+    }
+
+  }
+
+  case 4:
   addFav()
 
-case 5:
+  case 5:
   fmt.Println("Choisissez un profit minimum (entrez un entier entre 0 et 100) : ")
   _,err = fmt.Scanln(&monProfit)
 
@@ -115,19 +127,59 @@ case 5:
   }
   doEvery(10*time.Second,monProfit,Ids)
   //getBankPrices(Ids,monProfit)
-}
+  case 6:
+    getInvendable()
+  }
   //doEvery(10*time.Second)
   //mesItems:=getItems()
 
   //fmt.Println(mesItems[0])
 
 
-/*
+  /*
     foo2 := price{}
     getJson("https://api.guildwars2.com/v2/commerce/prices?id=19684", &foo2)
     fmt.Println(foo2.Buys.UnitePrice)*/
-    fmt.Println("apuyer sur entrer pour fermer : ")
+    fmt.Println("appuyer sur entrer pour fermer : ")
     _,err = fmt.Scanln(&fin)
+
+}
+
+func getInvendable(){
+  var monItem price
+  var id int64
+  var item_id int64
+  var name string
+  var category int64
+  var count int64
+  var Ids []int64
+  url :="https://api.guildwars2.com/v2/commerce/prices?id="
+  db, err := sql.Open("sqlite3", "./itemgw.db")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer db.Close()
+
+    rows,err :=db.Query("SELECT * FROM Bank")
+    for rows.Next(){
+    err = rows.Scan(&id,&item_id,&name,&category,&count)
+    //fmt.Println("ID : ", item_id," Nom : ",name, " Category : ",category," Count : ",count)
+    Ids=append(Ids,int64(item_id))
+    if err != nil {
+      log.Fatal(err)
+      fmt.Println("arret scanln in case 5")
+    }
+
+    for i := 0; i < len(Ids); i++ {
+      getJson(url+strconv.FormatInt(Ids[i],10),&monItem)
+      if monItem.Buys.Unit_price ==0{
+        if monItem.Sells.Unit_price ==0{
+          fmt.Println("Cet Item est invendable :",monItem.Id)
+        }
+      }
+
+    }
+  }
 
 }
 
@@ -139,12 +191,12 @@ func getUnItem(I string)  {
 
   var Unitems price
   getJson(url,&Unitems)
-  fmt.Println("item: ",Unitems)
+  fmt.Println("item: ",getNom(Unitems.Id))
   //for i := 0; i < len(Unitems); i++ {
       fmt.Println("Achat : ",Unitems.Buys.Unit_price," Vente : ",Unitems.Sells.Unit_price," Profit : ",calcFees(Unitems.Buys.Unit_price,Unitems.Sells.Unit_price))
 
-  if Unitems.Buys.Unit_price != 0 && Unitems.Sells.Unit_price != 0{
-        addCsv(Unitems)
+  if Unitems.Buys.Unit_price != 0 || Unitems.Sells.Unit_price != 0{
+        addCsvTest(Unitems,getNom(Unitems.Id))
   }
   //}
 
@@ -159,6 +211,12 @@ func addFav()  {
   var item_id int
   var category int
   var count int
+
+  var id2 int
+  var name2 string
+  var item_id2 int
+  var category2 int
+  var count2 int
 
   db, err := sql.Open("sqlite3", "./itemgw.db")
   if err != nil {
@@ -180,12 +238,14 @@ func addFav()  {
 
   rows,err =db.Query("SELECT * FROM Bank where id="+choix)
   for rows.Next(){
-  err = rows.Scan(&id,&item_id,&name,&category,&count)
+  err = rows.Scan(&id2,&item_id2,&name2,&category2,&count2)
+    fmt.Println("ID : ", item_id2," Nom : ",name2, " Category : ",category2," Count : ",count2)
+    //_,err =db.Exec("INSERT INTO favori VALUES (\""+choix +"\",\""+name2+"\")")
   if err != nil {
     log.Fatal(err)
     }
   }
-  _,err =db.Exec("INSERT INTO favori VALUES (\""+choix +"\",\""+name+"\")")
+
 
 }
 
@@ -194,7 +254,7 @@ func getBankPrices(t time.Time,I []int64,min int)  {
   var mesPrices2 []price
   var mesPrices3 []price
   var profit float64
-
+  fmt.Println(t)
   //L'api est limité à 200 items à la fois du coup on sépare les 413 items en 3
   //fmt.Println("len de I : ",len(I))
   url := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(I[0],10)
@@ -205,27 +265,29 @@ func getBankPrices(t time.Time,I []int64,min int)  {
   url2 := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(I[200],10)
   for i := 201; i < 399; i++ {
     url2 = url2 +","+strconv.FormatInt(I[i],10)
+
   }
 
   url3 := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(I[400],10)
   for i := 401; i < 413; i++ {
     url3 = url3 +","+strconv.FormatInt(I[i],10)
+
   }
   //fmt.Println(url)
-
   getJson(url,&mesPrices)
   getJson(url2,&mesPrices2)
   getJson(url3,&mesPrices3)
   //fmt.Println(len(mesPrices))
   for i := 0; i < len(mesPrices); i++ {
     //fmt.Println(I)
-    if mesPrices[i].Buys.Unit_price == 0 && mesPrices[i].Sells.Unit_price == 0{
+    if mesPrices[i].Buys.Unit_price == int64(0) && mesPrices[i].Sells.Unit_price == int64(0){
           supprItem(mesPrices[i].Id)
+          fmt.Println("Item non vendable : ",mesPrices[i].Id)
     }else{
       profit =calcFees(mesPrices[i].Buys.Unit_price,mesPrices[i].Sells.Unit_price)
 
       if profit>=float64(min){
-        fmt.Println("Nom : ",getNom(mesPrices[i].Id)," | Achat : ",mesPrices[i].Buys.Unit_price," | Vente : ",mesPrices[i].Sells.Unit_price," | Profit : ",profit)
+        fmt.Println("Nom : ",getNom(mesPrices[i].Id)," | Achat : ",mesPrices[i].Buys.Unit_price," | Vente : ",mesPrices[i].Sells.Unit_price-1," | Profit : ",profit,"%")
       }else{
         //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
       }
@@ -237,11 +299,12 @@ func getBankPrices(t time.Time,I []int64,min int)  {
     //fmt.Println(I)
     if mesPrices2[i].Buys.Unit_price == 0 && mesPrices2[i].Sells.Unit_price == 0{
           supprItem(mesPrices2[i].Id)
+          fmt.Println("Item non vendable : ",mesPrices[i].Id)
     }else{
       profit =calcFees(mesPrices2[i].Buys.Unit_price,mesPrices2[i].Sells.Unit_price)
 
       if profit>=float64(min){
-        fmt.Println("Nom : ",getNom(mesPrices2[i].Id)," | Achat : ",mesPrices2[i].Buys.Unit_price," | Vente : ",mesPrices2[i].Sells.Unit_price," | Profit : ",profit)
+        fmt.Println("Nom : ",getNom(mesPrices2[i].Id)," | Achat : ",mesPrices2[i].Buys.Unit_price," | Vente : ",mesPrices2[i].Sells.Unit_price-1," | Profit : ",profit,"%")
       }else{
         //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
       }
@@ -253,17 +316,18 @@ func getBankPrices(t time.Time,I []int64,min int)  {
     //fmt.Println(I)
     if mesPrices3[i].Buys.Unit_price == 0 && mesPrices3[i].Sells.Unit_price == 0{
           supprItem(mesPrices3[i].Id)
+          fmt.Println("Item non vendable : ",mesPrices[i].Id)
     }else{
       profit =calcFees(mesPrices3[i].Buys.Unit_price,mesPrices3[i].Sells.Unit_price)
 
       if profit>=float64(min){
-        fmt.Println("Nom : ",getNom(mesPrices3[i].Id)," | Achat : ",mesPrices3[i].Buys.Unit_price," | Vente : ",mesPrices3[i].Sells.Unit_price," | Profit : ",profit)
+        fmt.Println("Nom : ",getNom(mesPrices3[i].Id)," | Achat : ",mesPrices3[i].Buys.Unit_price," | Vente : ",mesPrices3[i].Sells.Unit_price-1," | Profit : ",profit,"%")
       }else{
         //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
       }
     }
   }
-
+  fmt.Println("============================================================================================")
 }
 
 
@@ -396,26 +460,62 @@ func pingApi(t time.Time) price{
   return foo1
 }
 
-func addCsv(p price) {
+func addCsv(p price,name string) {
   //values := []string{}
   //result := []string{}
-	f, err := os.OpenFile("values.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+  fichier := "./items/"+name +".csv"
+  fmt.Println(name)
+	f, err := os.OpenFile(fichier, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	w := csv.NewWriter(f)
+    //f, err := os.Create(fichier)
+		f,_ := os.Create(fichier)
+    f,_ = os.OpenFile(fichier, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+    w := csv.NewWriter(f)
+    w.Write([]string{strconv.FormatInt(p.Id,10)+";" +getNom(p.Id)+";" +strconv.FormatInt(p.Buys.Unit_price,10)+";" + strconv.FormatInt(p.Sells.Unit_price,10)+";"+strconv.FormatFloat(calcFees(p.Buys.Unit_price,p.Sells.Unit_price),'G',0,64)})
+    fmt.Println("erreur")
+    w.Flush()
+  }else{
+    w := csv.NewWriter(f)
+    w.Write([]string{strconv.FormatInt(p.Id,10)+";" +getNom(p.Id)+";" +strconv.FormatInt(p.Buys.Unit_price,10)+";" + strconv.FormatInt(p.Sells.Unit_price,10)+";"+strconv.FormatFloat(calcFees(p.Buys.Unit_price,p.Sells.Unit_price),'G',0,64)})
+    fmt.Println("pas d'erreur")
+    w.Flush()
+  }
+
 	//for i := 0; i < 10; i++ {
   /*values[0]=strings.Join(strconv.FormatInt(p.Id,10),";")
   values[1]=strings.Join(getNom(p.Id),";")
   values[2]=strings.Join(strconv.FormatInt(p.Buys.Unit_price,10),";")
   values[3]=strings.Join(strconv.FormatInt(p.Sells.Unit_price,10),";")*/
 
-  w.Write([]string{strconv.FormatInt(p.Id,10)+";" +getNom(p.Id)+";" +strconv.FormatInt(p.Buys.Unit_price,10)+";" + strconv.FormatInt(p.Sells.Unit_price,10)+";"+strconv.FormatFloat(calcFees(p.Buys.Unit_price,p.Sells.Unit_price),'G',0,64)})
+
   //result[0] =strings.Join(values,";")
   //w.Write(values[0],values[1],values[2],values[3])
   //}
-	w.Flush()
+
+}
+
+
+
+func addCsvTest(p price,name string) {
+  fichier := "./items/"+name +".csv"
+  fmt.Println(name)
+	f, err := os.OpenFile(fichier, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		f,_ := os.Create(fichier)
+    f,_ = os.OpenFile(fichier, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+    w := csv.NewWriter(f)
+    w.Write([]string{"Id;Name;Buy Price;Sell Price;Profit"})
+    w.Flush()
+  //  x := csv.NewWriter(f)
+    //x.Write([]string{strconv.FormatInt(p.Id,10)+";" +getNom(p.Id)+";" +strconv.FormatInt(p.Buys.Unit_price,10)+";" + strconv.FormatInt(p.Sells.Unit_price,10)+";"+strconv.FormatFloat(calcFees(p.Buys.Unit_price,p.Sells.Unit_price),'G',0,64)})
+    fmt.Println("erreur")
+    //x.Flush()
+  }else{
+    w := csv.NewWriter(f)
+    w.Write([]string{strconv.FormatInt(p.Id,10)+";" +getNom(p.Id)+";" +strconv.FormatInt(p.Buys.Unit_price,10)+";" + strconv.FormatInt(p.Sells.Unit_price,10)+";"+strconv.FormatFloat(calcFees(p.Buys.Unit_price,p.Sells.Unit_price),'G',0,64)})
+    fmt.Println("pas d'erreur")
+    w.Flush()
+  }
 }
 
 
@@ -441,7 +541,8 @@ func calcFees(buy int64, sell int64) float64{
     }
 
   }else{
-    profit =(float64(100)-(float64((buy*100.0))/(float64(sell)*0.85)))
+    //profit =(float64(100)-(float64((buy*100.0))/(float64(sell)*0.85)))
+    profit =(((float64(sell-1)*0.85)-float64(buy))*float64(100))/float64(buy)
   }
 
   return profit
