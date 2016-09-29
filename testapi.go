@@ -129,6 +129,8 @@ func main() {
   //getBankPrices(Ids,monProfit)
   case 6:
     getInvendable()
+  case 7:
+    checkFav()
   }
   //doEvery(10*time.Second)
   //mesItems:=getItems()
@@ -205,18 +207,19 @@ func getUnItem(I string)  {
 
 func addFav()  {
 
-  var choix string
+  var choix int64
   var id int
   var name string
   var item_id int
   var category int
   var count int
 
-  var id2 int
+  //var id2 int
   var name2 string
   var item_id2 int
   var category2 int
   var count2 int
+  var expr string
 
   db, err := sql.Open("sqlite3", "./itemgw.db")
   if err != nil {
@@ -236,15 +239,202 @@ func addFav()  {
   fmt.Println("Choisissez l'id d'un item à ajouter en favori : ")
   _,err = fmt.Scanln(&choix)
 
-  rows,err =db.Query("SELECT * FROM Bank where id="+choix)
-  for rows.Next(){
-  err = rows.Scan(&id2,&item_id2,&name2,&category2,&count2)
+  //rows,err =db.Query("SELECT * FROM Bank where id="+choix)
+  //err = rows.Scan(&id2,&item_id2,&name2,&category2,&count2)
     fmt.Println("ID : ", item_id2," Nom : ",name2, " Category : ",category2," Count : ",count2)
-    //_,err =db.Exec("INSERT INTO favori VALUES (\""+choix +"\",\""+name2+"\")")
+    expr ="INSERT INTO favori VALUES ("+strconv.FormatInt(choix,10) +",\""+getNom(choix)+"\")"
+    fmt.Println(expr)
+    _,err =db.Exec(expr)
   if err != nil {
     log.Fatal(err)
     }
+
+
+}
+
+
+func checkFav(){
+  var mesPrices []price
+  var mesPrices2 []price
+  var mesPrices3 []price
+  var profit float64
+  var Ids []int64
+  var item_id int64
+  var name string
+  var min int64
+
+  fmt.Println("Choisissez la valeur de profit minimum ( en pourcent) : ")
+  _,err:= fmt.Scanln(&min)
+
+  db, err := sql.Open("sqlite3", "./itemgw.db")
+  if err != nil {
+    log.Fatal(err)
   }
+  defer db.Close()
+
+    rows,err :=db.Query("SELECT * FROM favori")
+    for rows.Next(){
+    err = rows.Scan(&item_id,&name)
+    Ids=append(Ids,int64(item_id))
+    if err != nil {
+      log.Fatal(err)
+    }
+  }
+
+
+  //L'api est limité à 200 items à la fois du coup on sépare les 413 items en 3
+  //fmt.Println("len de I : ",len(I))
+  if len(Ids)<200 {
+    url := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(Ids[0],10)
+    for i := 1; i < len(Ids); i++ {
+      url = url +","+strconv.FormatInt(Ids[i],10)
+    }
+    getJson(url,&mesPrices)
+
+    for i := 0; i < len(mesPrices); i++ {
+      //fmt.Println(I)
+      if mesPrices[i].Buys.Unit_price == int64(0) && mesPrices[i].Sells.Unit_price == int64(0){
+            supprItem(mesPrices[i].Id)
+            fmt.Println("Item non vendable : ",mesPrices[i].Id)
+      }else{
+        profit =calcFees(mesPrices[i].Buys.Unit_price,mesPrices[i].Sells.Unit_price)
+
+        if profit>=float64(min){
+          fmt.Println("Nom : ",getNom(mesPrices[i].Id)," | Achat : ",mesPrices[i].Buys.Unit_price," | Vente : ",mesPrices[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+        }else{
+          //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
+        }
+      }
+    }
+    fmt.Println("============================================================================================")
+  }
+
+  if len(Ids)>200 {
+    url := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(Ids[0],10)
+    for i := 1; i < 199; i++ {
+      url = url +","+strconv.FormatInt(Ids[i],10)
+    }
+
+    url2 := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(Ids[200],10)
+    for i := 201; i < len(Ids); i++ {
+      url2 = url2 +","+strconv.FormatInt(Ids[i],10)
+
+    }
+
+    getJson(url,&mesPrices)
+    getJson(url2,&mesPrices2)
+    for i := 0; i < len(mesPrices); i++ {
+      //fmt.Println(I)
+      if mesPrices[i].Buys.Unit_price == int64(0) && mesPrices[i].Sells.Unit_price == int64(0){
+            supprItem(mesPrices[i].Id)
+            fmt.Println("Item non vendable : ",mesPrices[i].Id)
+      }else{
+        profit =calcFees(mesPrices[i].Buys.Unit_price,mesPrices[i].Sells.Unit_price)
+
+        if profit>=float64(min){
+          fmt.Println("Nom : ",getNom(mesPrices[i].Id)," | Achat : ",mesPrices[i].Buys.Unit_price," | Vente : ",mesPrices[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+        }else{
+          //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
+        }
+      }
+    }
+
+
+    for i := 0; i < len(mesPrices2); i++ {
+      //fmt.Println(I)
+      if mesPrices2[i].Buys.Unit_price == 0 && mesPrices2[i].Sells.Unit_price == 0{
+            supprItem(mesPrices2[i].Id)
+            fmt.Println("Item non vendable : ",mesPrices[i].Id)
+      }else{
+        profit =calcFees(mesPrices2[i].Buys.Unit_price,mesPrices2[i].Sells.Unit_price)
+
+        if profit>=float64(min){
+          fmt.Println("Nom : ",getNom(mesPrices2[i].Id)," | Achat : ",mesPrices2[i].Buys.Unit_price," | Vente : ",mesPrices2[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+        }else{
+          //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
+        }
+      }
+    }
+    fmt.Println("============================================================================================")
+  }
+
+
+  if len(Ids)>400 {
+    url := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(Ids[0],10)
+    for i := 1; i < 199; i++ {
+      url = url +","+strconv.FormatInt(Ids[i],10)
+    }
+
+    url2 := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(Ids[200],10)
+    for i := 201; i < 399; i++ {
+      url2 = url2 +","+strconv.FormatInt(Ids[i],10)
+
+    }
+
+    url3 := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(Ids[400],10)
+    for i := 401; i < len(Ids); i++ {
+      url3 = url3 +","+strconv.FormatInt(Ids[i],10)
+
+    }
+    getJson(url,&mesPrices)
+    getJson(url2,&mesPrices2)
+    getJson(url3,&mesPrices3)
+
+    for i := 0; i < len(mesPrices); i++ {
+      //fmt.Println(I)
+      if mesPrices[i].Buys.Unit_price == int64(0) && mesPrices[i].Sells.Unit_price == int64(0){
+            supprItem(mesPrices[i].Id)
+            fmt.Println("Item non vendable : ",mesPrices[i].Id)
+      }else{
+        profit =calcFees(mesPrices[i].Buys.Unit_price,mesPrices[i].Sells.Unit_price)
+
+        if profit>=float64(min){
+          fmt.Println("Nom : ",getNom(mesPrices[i].Id)," | Achat : ",mesPrices[i].Buys.Unit_price," | Vente : ",mesPrices[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+        }else{
+          //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
+        }
+      }
+    }
+
+
+    for i := 0; i < len(mesPrices2); i++ {
+      //fmt.Println(I)
+      if mesPrices2[i].Buys.Unit_price == 0 && mesPrices2[i].Sells.Unit_price == 0{
+            supprItem(mesPrices2[i].Id)
+            fmt.Println("Item non vendable : ",mesPrices[i].Id)
+      }else{
+        profit =calcFees(mesPrices2[i].Buys.Unit_price,mesPrices2[i].Sells.Unit_price)
+
+        if profit>=float64(min){
+          fmt.Println("Nom : ",getNom(mesPrices2[i].Id)," | Achat : ",mesPrices2[i].Buys.Unit_price," | Vente : ",mesPrices2[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+        }else{
+          //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
+        }
+      }
+    }
+
+
+    for i := 0; i < len(mesPrices3); i++ {
+      //fmt.Println(I)
+      if mesPrices3[i].Buys.Unit_price == 0 && mesPrices3[i].Sells.Unit_price == 0{
+            supprItem(mesPrices3[i].Id)
+            fmt.Println("Item non vendable : ",mesPrices[i].Id)
+      }else{
+        profit =calcFees(mesPrices3[i].Buys.Unit_price,mesPrices3[i].Sells.Unit_price)
+
+        if profit>=float64(min){
+          fmt.Println("Nom : ",getNom(mesPrices3[i].Id)," | Achat : ",mesPrices3[i].Buys.Unit_price," | Vente : ",mesPrices3[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+        }else{
+          //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
+        }
+      }
+    }
+  fmt.Println("============================================================================================")
+  }
+
+  //fmt.Println(url)
+
+  //fmt.Println(len(mesPrices))
 
 
 }
