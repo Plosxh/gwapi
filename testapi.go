@@ -10,7 +10,9 @@ import(
   "io/ioutil"
   "database/sql"
   "log"
+  //"io"
   _ "github.com/mattn/go-sqlite3"
+  "github.com/bwmarrin/discordgo"
 //"strings"
 	"time"
   "strconv"
@@ -28,6 +30,10 @@ type banqueMatXml struct{
   Count int64  `xml:"count"`
 }
 
+var (
+	BotID    string
+)
+
 func main() {
 
   //https://api.guildwars2.com/v2/tokeninfo?access_token=65D84368-DA6E-9D4A-8B6E-70C0395432961B8D9A2D-1F1E-4F28-B484-9D0DFE20DBFF
@@ -39,14 +45,14 @@ func main() {
    var objet string
    var item_id int
    var name string
-   var mesObjets string
+   //var mesObjets string
    var nb int
    var Ids []int64
    var monProfit int
    var fin string
    var monTime int
-   var loop bool
-   fmt.Println("Choisissez : 1-Mettre à jour la Banque, 2-Voir les prix, 3-Tester getUnItem, 4-par ajouter un favori, 5-getBankPrice :")
+   //var loop bool
+   fmt.Println("Choisissez : 1-Mettre à jour la Banque, 2-Prix de chaque item en banque, 3-halloween mode :")
    _,err := fmt.Scanln(&choix)
    if err != nil {
      log.Fatal(err)
@@ -57,7 +63,7 @@ func main() {
   case 1:
   checkBank(getClef())
 
-  case 2:
+  case 5:
   db, err := sql.Open("sqlite3", "./itemgw.db")
   if err != nil {
     log.Fatal(err)
@@ -79,11 +85,12 @@ func main() {
 
   case 3:
   //for {
-
-
+  x := time.Now()
+  halloween(x)
+  doEveryhalloween(300*time.Second)
 
   //}
-  loop = true
+  /*loop = true
   for  loop {
     fmt.Println("Choisissez l'Id d'un objet ou stop pour arrêter : ")
     _,err = fmt.Scanln(&objet)
@@ -96,12 +103,12 @@ func main() {
       getUnItem(mesObjets)
     }
 
-  }
+  }*/
 
   case 4:
   addFav()
 
-  case 5:
+case 2:
   fmt.Println("Choisissez un profit minimum (entrez un entier entre 0 et 100) : ")
   _,err = fmt.Scanln(&monProfit)
 
@@ -125,12 +132,45 @@ func main() {
     }
     nb++
   }
-  doEvery(10*time.Second,monProfit,Ids)
+  x := time.Now()
+  getBankPrices(x,Ids,monProfit)
+  doEvery(300*time.Second,monProfit,Ids)
   //getBankPrices(Ids,monProfit)
   case 6:
     getInvendable()
   case 7:
     checkFav()
+  case 8:
+    dg, err := discordgo.New("pierre.charrat@etu.univ-lyon1.fr", "gwapipass", "MjQwNzYxMDQ5Njk4MDA5MDg4.CvIBxg.ylEFpmzWJ1oVsq2lDylH9pABkC8")
+    if err != nil {
+      fmt.Println("error creating Discord session,", err)
+      return
+    }
+
+    u, err := dg.User("@me")
+    if err != nil {
+      fmt.Println("error obtaining account details,", err)
+    }
+
+    // Store the account ID for later use.
+    BotID = u.ID
+
+    dg.AddHandler(messageCreate)
+
+    // Open the websocket and begin listening.
+    err = dg.Open()
+    if err != nil {
+      fmt.Println("error opening connection,", err)
+      return
+    }
+
+    fmt.Println("Bot is now running.  Press CTRL-C to exit.")
+    // Simple way to keep program running until CTRL-C is pressed.
+    <-make(chan struct{})
+    return
+  case 9:
+    toxml()
+
   }
   //doEvery(10*time.Second)
   //mesItems:=getItems()
@@ -146,6 +186,131 @@ func main() {
     _,err = fmt.Scanln(&fin)
 
 }
+
+
+func halloween(t time.Time){
+  url := "https://api.guildwars2.com/v2/commerce/prices?ids=36038,67379,67386,36041,36074,36081,36080,36077,36084,36076,67367,67371,67368,36095,36060,48807,36061,48806,36059,48805,72113,67380,36103,67369,67381,36047,36066,67382,36102,36050,36065,79637,79638,71931,71946,70732,79690,76131,76642,67370,67372,67375,79647"
+  var mesPrices []price
+  getJson(url,&mesPrices)
+
+  for i := 0; i < len(mesPrices); i++ {
+    //fmt.Println(I)
+    if mesPrices[i].Buys.Unit_price == int64(0) && mesPrices[i].Sells.Unit_price == int64(0){
+        supprItem(mesPrices[i].Id)
+        fmt.Println("Item non vendable : ",mesPrices[i].Id)
+  }else{
+    profit :=calcFees(mesPrices[i].Buys.Unit_price,mesPrices[i].Sells.Unit_price)
+
+    if profit>=float64(0){
+      fmt.Println("Nom : ",getNom(mesPrices[i].Id)," | Achat : ",mesPrices[i].Buys.Unit_price," | Vente : ",mesPrices[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+      fmt.Println("--------------------------------------------------------------------------------------------------------")
+    }else{
+      //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
+      }
+    }
+  }
+}
+
+
+func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+  var id int64
+  var category int
+  var count int
+  var item_id int
+  var name string
+  var Ids []int64
+  //var out1 string
+  //var out2 string
+  //var out3 string
+	// Ignore all messages created by the bot itself
+	if m.Author.ID == BotID {
+		return
+	}
+  db, err := sql.Open("sqlite3", "./itemgw.db")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer db.Close()
+
+    rows,err :=db.Query("SELECT * FROM Bank")
+    for rows.Next(){
+    err = rows.Scan(&id,&item_id,&name,&category,&count)
+    //fmt.Println("ID : ", item_id," Nom : ",name, " Category : ",category," Count : ",count)
+    Ids=append(Ids,int64(item_id))
+    if err != nil {
+      log.Fatal(err)
+      fmt.Println("arret scanln in case 5")
+    }
+  }
+
+  mesPrices,mesPrices2,mesPrices3:=getDiscordBankPrices(time.Now(),Ids,20)
+	// If the message is "ping" reply with "Pong!"
+	if m.Content == "!prices" {
+    //  mesItems:=getItems()
+    for i := 0; i < len(mesPrices); i++ {
+      profit :=calcFees(mesPrices[i].Buys.Unit_price,mesPrices[i].Sells.Unit_price)
+      if profit>=float64(50){
+        //out1 += "Nom : "+getNom(mesPrices[i].Id)+" | Achat : "+strconv.FormatInt(mesPrices[i].Buys.Unit_price,10)+" | Vente : "+strconv.FormatInt(mesPrices[i].Sells.Unit_price-1,10)+" | Profit : "+strconv.FormatInt(int64(profit),10)+"%"+"\n"+"--------------------------------------------------------------------------------------------------------"+"\n"
+    _, _ = s.ChannelMessageSend(m.ChannelID, "Nom : "+getNom(mesPrices[i].Id)+" | Achat : "+strconv.FormatInt(mesPrices[i].Buys.Unit_price,10)+" | Vente : "+strconv.FormatInt(mesPrices[i].Sells.Unit_price-1,10)+"\n"+"--------------------------------------------------------------------------------------------------------")
+    //_, _ = s.ChannelMessageSend(m.ChannelID,"--------------------------------------------------------------------------------------------------------")
+
+      }
+    }
+  //  _, _ = s.ChannelMessageSend(m.ChannelID,out1)
+    for i := 0; i < len(mesPrices2); i++ {
+      profit :=calcFees(mesPrices3[i].Buys.Unit_price,mesPrices3[i].Sells.Unit_price)
+      if profit>=float64(50){
+        //out2 += "Nom : "+getNom(mesPrices2[i].Id)+" | Achat : "+strconv.FormatInt(mesPrices2[i].Buys.Unit_price,10)+" | Vente : "+strconv.FormatInt(mesPrices2[i].Sells.Unit_price-1,10)+" | Profit : "+strconv.FormatInt(int64(profit),10)+"%"+"\n"+"--------------------------------------------------------------------------------------------------------"+"\n"
+    _, _ = s.ChannelMessageSend(m.ChannelID, "Nom : "+getNom(mesPrices2[i].Id)+" | Achat : "+strconv.FormatInt(mesPrices2[i].Buys.Unit_price,10)+" | Vente : "+strconv.FormatInt(mesPrices2[i].Sells.Unit_price-1,10)+"\n"+"--------------------------------------------------------------------------------------------------------")
+    //_, _ = s.ChannelMessageSend(m.ChannelID,"--------------------------------------------------------------------------------------------------------")
+      }
+    }
+    //_, _ = s.ChannelMessageSend(m.ChannelID,out2)
+
+    for i := 0; i < len(mesPrices3); i++ {
+      profit :=calcFees(mesPrices3[i].Buys.Unit_price,mesPrices3[i].Sells.Unit_price)
+      if profit>=float64(50){
+    _,_ = s.ChannelMessageSend(m.ChannelID, "Nom : "+getNom(mesPrices3[i].Id)+" | Achat : "+strconv.FormatInt(mesPrices3[i].Buys.Unit_price,10)+" | Vente : "+strconv.FormatInt(mesPrices3[i].Sells.Unit_price-1,10)+"\n"+"--------------------------------------------------------------------------------------------------------")
+    //_, _ = s.ChannelMessageSend(m.ChannelID,"--------------------------------------------------------------------------------------------------------")
+      //out3 += "Nom : "+getNom(mesPrices3[i].Id)+" | Achat : "+strconv.FormatInt(mesPrices3[i].Buys.Unit_price,10)+" | Vente : "+strconv.FormatInt(mesPrices3[i].Sells.Unit_price-1,10)+" | Profit : "+strconv.FormatInt(int64(profit),10)+"%"+"\n"+"--------------------------------------------------------------------------------------------------------"+"\n"
+      }
+    }
+    //_, _ = s.ChannelMessageSend(m.ChannelID,out3)
+
+    _,_ = s.ChannelMessageSend(m.ChannelID,"Fin")
+    //fmt.Println(string(mesItems[0].Id))
+	}
+
+	// If the message is "pong" reply with "Ping!"
+}
+
+func toxml(){
+  var mesObjets string
+  var Ids []int64
+  getJson("https://api.guildwars2.com/v2/items",&Ids)
+  for i:=0; i < len(Ids);i++{
+    var monObjet objet
+    getJson("https://api.guildwars2.com/v2/items/"+strconv.FormatInt(Ids[i],10),&monObjet)
+
+    fmt.Println(i)
+    output,err :=json.MarshalIndent(&monObjet, "", "\t\t")
+      if err != nil {
+        fmt.Printf("error: %v\n", err)
+      }
+      if i == 0{
+        mesObjets += "["+string(output)
+      }else{
+        mesObjets += ","+ string(output)
+      }
+
+  }
+  mesObjets += "]"
+  err := ioutil.WriteFile("out.json", []byte(mesObjets), 0644)
+  if err != nil {
+    fmt.Printf("error: %v\n", err)
+  }
+}
+
 
 func getInvendable(){
   var monItem price
@@ -186,7 +351,7 @@ func getInvendable(){
 }
 
 
-func getUnItem(I string)  {
+func getUnItem(I string)  price{
 
   url := "https://api.guildwars2.com/v2/commerce/prices?id="+I
   //fmt.Println(url)
@@ -201,7 +366,7 @@ func getUnItem(I string)  {
         addCsvTest(Unitems,getNom(Unitems.Id))
   }
   //}
-
+  return Unitems
 }
 
 
@@ -478,6 +643,7 @@ func getBankPrices(t time.Time,I []int64,min int)  {
 
       if profit>=float64(min){
         fmt.Println("Nom : ",getNom(mesPrices[i].Id)," | Achat : ",mesPrices[i].Buys.Unit_price," | Vente : ",mesPrices[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+        fmt.Println("--------------------------------------------------------------------------------------------------------")
       }else{
         //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
       }
@@ -495,6 +661,7 @@ func getBankPrices(t time.Time,I []int64,min int)  {
 
       if profit>=float64(min){
         fmt.Println("Nom : ",getNom(mesPrices2[i].Id)," | Achat : ",mesPrices2[i].Buys.Unit_price," | Vente : ",mesPrices2[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+        fmt.Println("--------------------------------------------------------------------------------------------------------")
       }else{
         //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
       }
@@ -512,12 +679,44 @@ func getBankPrices(t time.Time,I []int64,min int)  {
 
       if profit>=float64(min){
         fmt.Println("Nom : ",getNom(mesPrices3[i].Id)," | Achat : ",mesPrices3[i].Buys.Unit_price," | Vente : ",mesPrices3[i].Sells.Unit_price-1," | Profit : ",profit,"%")
+        fmt.Println("--------------------------------------------------------------------------------------------------------")
       }else{
         //fmt.Println("Nom : ",getNom(mesPrices[i].Id),"a un profit de : ",profit," ce qui est trop faible.")
       }
     }
   }
   fmt.Println("============================================================================================")
+}
+
+func getDiscordBankPrices(t time.Time,I []int64,min int)  ([]price,[]price,[]price){
+  var mesPrices []price
+  var mesPrices2 []price
+  var mesPrices3 []price
+  fmt.Println(t)
+  //L'api est limité à 200 items à la fois du coup on sépare les 413 items en 3
+  //fmt.Println("len de I : ",len(I))
+  url := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(I[0],10)
+  for i := 1; i < 199; i++ {
+    url = url +","+strconv.FormatInt(I[i],10)
+  }
+
+  url2 := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(I[200],10)
+  for i := 201; i < 399; i++ {
+    url2 = url2 +","+strconv.FormatInt(I[i],10)
+
+  }
+
+  url3 := "https://api.guildwars2.com/v2/commerce/prices?ids="+strconv.FormatInt(I[400],10)
+  for i := 401; i < 413; i++ {
+    url3 = url3 +","+strconv.FormatInt(I[i],10)
+
+  }
+  //fmt.Println(url)
+  getJson(url,&mesPrices)
+  getJson(url2,&mesPrices2)
+  getJson(url3,&mesPrices3)
+  //fmt.Println(len(mesPrices))
+  return mesPrices,mesPrices2,mesPrices3
 }
 
 
@@ -615,6 +814,12 @@ func getItems()  []items{
 func doEvery(d time.Duration,p int, i []int64) {
 	for x := range time.Tick(d) {
     getBankPrices(x,i,p)
+	}
+}
+
+func doEveryhalloween(d time.Duration) {
+	for x := range time.Tick(d) {
+    halloween(x)
 	}
 }
 

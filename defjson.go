@@ -25,6 +25,23 @@ type items struct{
   Id int64
 }
 
+type objet struct{
+  Id int64
+  Chat_link string
+  Name string
+  Icon string
+  Description string
+  Type string
+  Rarity string
+  Level int64
+  Vendor_value int64
+  Default_skin int64
+  Flags string
+  GameType string
+  Restrictions string
+  Details []string
+}
+
 type mat struct{
   Name string
   Description string
