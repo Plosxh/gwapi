@@ -285,30 +285,34 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func toxml(){
-  var mesObjets string
+  //var mesObjets string
   var Ids []int64
   getJson("https://api.guildwars2.com/v2/items",&Ids)
-  for i:=0; i < len(Ids);i++{
+  for i:=25464; i < len(Ids);i++{
     var monObjet objet
     getJson("https://api.guildwars2.com/v2/items/"+strconv.FormatInt(Ids[i],10),&monObjet)
 
-    fmt.Println(i)
+    //fmt.Println(i)
     output,err :=json.MarshalIndent(&monObjet, "", "\t\t")
       if err != nil {
         fmt.Printf("error: %v\n", err)
       }
-      if i == 0{
+    /*  if i == 0{
         mesObjets += "["+string(output)
       }else{
         mesObjets += ","+ string(output)
+      }*/
+      errecri := ioutil.WriteFile("./items/"+monObjet.Type+"/"+strconv.Itoa(i)+".json",output,0644)
+      if errecri != nil {
+        fmt.Printf("error: %v\n", errecri)
       }
 
   }
-  mesObjets += "]"
+  /*mesObjets += "]"
   err := ioutil.WriteFile("out.json", []byte(mesObjets), 0644)
   if err != nil {
     fmt.Printf("error: %v\n", err)
-  }
+  }*/
 }
 
 
